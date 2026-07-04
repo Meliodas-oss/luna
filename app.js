@@ -1,65 +1,84 @@
 let map = L.map('map').setView([50.11, 8.68], 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19
+// DARK TILE (Google-like)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    maxZoom: 20
 }).addTo(map);
+
+let userMarker = null;
+let targetMarker = null;
+let routeLine = null;
 
 let user = null;
 let target = null;
-let routeLine = null;
 
 let driveMode = false;
 let batteryMode = false;
 
-/* =========================
-   GPS SMOOTH ENGINE
-========================= */
+let lastRouteTime = 0;
+
 let state = {lat:0,lng:0,init:false};
 
 function smooth(lat,lng){
     if(!state.init){
-        state.lat=lat;
-        state.lng=lng;
-        state.init=true;
+        state.lat = lat;
+        state.lng = lng;
+        state.init = true;
     }
 
-    state.lat = state.lat*0.8 + lat*0.2;
-    state.lng = state.lng*0.8 + lng*0.2;
+    state.lat = state.lat * 0.85 + lat * 0.15;
+    state.lng = state.lng * 0.85 + lng * 0.15;
 
     return {lat:state.lat,lng:state.lng};
 }
 
-/* =========================
-   MAP CLICK → TARGET
-========================= */
-map.on("click",e=>{
+/* CLICK → TARGET */
+map.on("click", e=>{
     target = e.latlng;
+
+    if(targetMarker) map.removeLayer(targetMarker);
+
+    targetMarker = L.marker([target.lat, target.lng]).addTo(map);
+
     speak("Ziel gesetzt");
-    updateRoute();
+    updateRoute(true);
 });
 
-/* =========================
-   GPS START
-========================= */
+/* GPS */
 function startGPS(){
+
     navigator.geolocation.watchPosition(pos=>{
 
         let raw = {
-            lat:pos.coords.latitude,
-            lng:pos.coords.longitude,
-            speed:pos.coords.speed||0
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: pos.coords.speed || 0
         };
 
-        user = smooth(raw.lat,raw.lng);
+        user = smooth(raw.lat, raw.lng);
 
-        let kmh = (raw.speed*3.6).toFixed(0);
+        let kmh = raw.speed ? (raw.speed * 3.6).toFixed(0) : 0;
         document.getElementById("speed").innerText = kmh + " km/h";
 
-        if(driveMode){
-            map.setView([user.lat,user.lng],16);
+        // USER MARKER
+        if(!userMarker){
+            userMarker = L.marker([user.lat,user.lng]).addTo(map);
+        } else {
+            userMarker.setLatLng([user.lat,user.lng]);
         }
 
-        if(target) updateRoute();
+        if(driveMode){
+            map.setView([user.lat,user.lng], 16);
+        }
+
+        // smart reroute
+        if(target){
+            let now = Date.now();
+            if(now - lastRouteTime > 4000){
+                updateRoute();
+                lastRouteTime = now;
+            }
+        }
 
     },{
         enableHighAccuracy:true,
@@ -67,10 +86,8 @@ function startGPS(){
     });
 }
 
-/* =========================
-   ROUTE ENGINE (AI SCORE)
-========================= */
-async function updateRoute(){
+/* ROUTE ENGINE */
+async function updateRoute(force=false){
 
     if(!user || !target) return;
 
@@ -82,7 +99,7 @@ ${target.lng},${target.lat}?overview=full&geometries=geojson`;
     let res = await fetch(url);
     let data = await res.json();
 
-    if(!data.routes) return;
+    if(!data.routes || !data.routes.length) return;
 
     let r = data.routes[0];
 
@@ -91,8 +108,8 @@ ${target.lng},${target.lat}?overview=full&geometries=geojson`;
     if(routeLine) map.removeLayer(routeLine);
 
     routeLine = L.polyline(coords,{
-        color: driveMode ? "cyan" : "red",
-        weight:5
+        color: "cyan",
+        weight: 5
     }).addTo(map);
 
     let km = (r.distance/1000).toFixed(2);
@@ -100,27 +117,31 @@ ${target.lng},${target.lat}?overview=full&geometries=geojson`;
 
     document.getElementById("info").innerText =
         km + " km • " + min + " min";
+
+    // voice warning
+    if(r.distance < 300){
+        speak("Du bist sehr nah am Ziel");
+    }
 }
 
-/* =========================
-   MODES
-========================= */
+/* MODES */
 function toggleDrive(){
     driveMode = !driveMode;
-    speak(driveMode ? "Drive Mode an" : "Drive Mode aus");
+    speak(driveMode ? "Fahrmodus an" : "aus");
 }
 
 function toggleBattery(){
     batteryMode = !batteryMode;
-    speak(batteryMode ? "Battery Mode an" : "aus");
+    speak(batteryMode ? "Energiesparmodus an" : "aus");
 }
 
-/* =========================
-   SPEECH
-========================= */
+/* SPEECH */
 function speak(text){
     let s = new SpeechSynthesisUtterance(text);
     s.lang = "de-DE";
     speechSynthesis.speak(s);
 }
+
+/* START */
+startGPS();
 
