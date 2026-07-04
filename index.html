@@ -3,28 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NAVI V12</title>
 
-<link rel="stylesheet" href="style.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<title>Luna Navi V3</title>
+
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 </head>
-
 <body>
+
+<div id="ui">
+    <div id="speed">0 km/h</div>
+    <div id="info">GPS startet...</div>
+</div>
 
 <div id="map"></div>
 
-<div id="hud">
-    <div id="speed">0 km/h</div>
-    <div id="info">🧭 NAVI V12 READY</div>
-</div>
+<button onclick="toggleDrive()">🚗 Drive</button>
+<button onclick="toggleBattery()">🔋 Battery</button>
 
-<div id="panel">
-<button onclick="startGPS()">📍 GPS START</button>
-<button onclick="toggleDrive()">🚗 DRIVE</button>
-<button onclick="toggleBattery()">🔋 BATTERY</button>
-</div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="app.js"></script>
 
 </body>
